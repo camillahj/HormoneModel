@@ -1,7 +1,3 @@
-!-------------------------------------------------------------------------------
-! $Id$
-!-------------------------------------------------------------------------------
-
 ! PURPOSE:
 !  - Write arrays to a binary files (array_to_binary)
 !  - Read binary files into arrays (binary_to_array)
@@ -31,7 +27,7 @@ module binary_IO
 
   ! Getting path to result folder and renaming it to FIX_FOLDER
   ! NB! Spesific for the Hormone Model
-  use folderpath, only : FIX_FOLDER => foldername
+  use parameter_values, only : FIX_FOLDER => foldername
 
 
   implicit none

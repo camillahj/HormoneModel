@@ -1,10 +1,5 @@
-!*******************************************************************************
-! SVN Version ID: $Id$
-!*******************************************************************************
-
-
 !Module containing functions and parameters used for calculations
-! in Hormones_v2.f90
+! in main code
 
 module functions
 

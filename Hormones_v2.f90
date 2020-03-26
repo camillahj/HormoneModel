@@ -1,12 +1,9 @@
-!*******************************************************************************
-! SVN Version ID: $Id$
-!*******************************************************************************
+!Main program
 
 program Hormones_v2
 
   !Module containing all parameter values
-  !!NOTE!! New parameter values have to be added to this module
-  !In trunk the module is located in the file named parameters.f90
+  !!NOTE!! New parameter values should be added to this module
   use parameter_values
 
   !Module containing all functions as well as some parameters (like pi)
@@ -14,7 +11,6 @@ program Hormones_v2
   use functions
 
   !Module for printing results to binary files
-  !In trunk the module is located in the file named binary_write.f90
   use binary_IO
 
   implicit none
@@ -40,8 +36,6 @@ program Hormones_v2
   real(kind=RP)  L_new, R_new, L_cat, R_cat                 !L and R category for new length and reserves, continuous
   real(kind=RP)  dL, dR, dE                                 !Integer part of new length and reserves and environmental category...
   integer        intL, intR, intE                           !...and decimal part
-  
-!  real(kind=RP) intake_max                                  !Max intake according to somatic weight !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !Variables for environment
   real(kind=RP), dimension(1:E_categories)               :: ValueOfE     !Multiplicative effect of food environment on intake [-]
@@ -59,7 +53,7 @@ program Hormones_v2
   !Variables for metabolic rate
   real(kind=RP)  SMR_std, SMR_somatic_std, SMR_exp_CJ, SMR_coeff_CJ, SMR_coeff, SMR_THF, SDA
 
-  !Variables for Oxygen
+  !Variables for oxygen
   real(kind=RP)  O2max_std, O2max_THF, O2_used
 
   !Variables for mortality
@@ -105,16 +99,17 @@ program Hormones_v2
   !Setting fixed seed for random calculations
   call fixed_seed(random_seed_nr)
 
-  !If forwardOnly is set to "n" we run both environment, backward and forward
+  !If forwardOnly is set to "n" we run the initiation of the environment, and the backward and forward part of the model
   forwardONLY_IF: if (forwardOnly == "n") then
+
 
     !ENVIRONMENTAL STOCHASTICITY
 
     !Initializing values
     E_mean = 1._RP+real((E_categories-1),RP)/2._RP !Mean environment
-    E_real = E_mean                     !Environment in real
-    E_cat = nint(E_real)                !Environment in categories
-    ProbOfE(:,:) = 0._RP                !Probability of autocorrelated environment in next timestep
+    E_real = E_mean                                !Environment in real
+    E_cat = nint(E_real)                           !Environment in categories
+    ProbOfE(:,:) = 0._RP                           !Probability of autocorrelated environment in next timestep
     ProbAllE(:) = 0._RP
     sumE_cat = 0
     
@@ -129,12 +124,11 @@ program Hormones_v2
       !Update current for next timestep: what is current environment
       E_real = nextE_real
       E_cat = nextE_cat
-
     end do
 
     ActualMeanEnvironment = real(sumE_cat,RP)/real(maxCounter,RP)
 
-    !Use ProbAllE vector - probability of being in each E category irrespective of preceding category - for
+    !Use ProbAllE vector - probability of being in each E category irrespective of preceding category
     do E_cat=1, E_categories
         ProbAllE(E_cat) = sum(ProbOfE(E_cat,:)) !For each E_real - sum the number of times that category occurred (irrespective of preceding category)
     end do
@@ -178,14 +172,14 @@ program Hormones_v2
     TIME_LOOP: do t = t_max-1, 1, -1
 
       !STATES
-      LENGTH_LOOP: do L = 1, L_categories-1                                                               !MOST LIKELY WE SHOULD STOP AT L_categories -1, as at max Length fitness is 1 and "mission accomplished", no strategy necessary
-        length = length_min + (real(L,RP)-1._RP) * length_step                                            !Calculate body length [cm]
-        weight_somatic = k_somatic*(length**3._RP)                                                        !Converts length into weight with min reserves [kg]
+      LENGTH_LOOP: do L = 1, L_categories-1                         !We stop at L_categories -1, as at max Length fitness is 1 and "mission accomplished", no strategy necessary
+        length = length_min + (real(L,RP)-1._RP) * length_step      !Calculate body length [cm]
+        weight_somatic = k_somatic*(length**3._RP)                  !Converts length into weight with min reserves [kg]
         !Calculates weight at max reserves and subtracts with weight at min reserves and converts this into energy to get max energy in reserves [J]
         reserves_max = (k_max_reserves*(length**3._RP) - weight_somatic)*reserves_energy_density
-        M_size = M_size_coeff*(length**M_size_exp)                                                        !Mortality rate due to size [timestep-1]
-        O2max_std = O2max_coeff*(weight_somatic**O2max_exp)                                               !Max aerobic scope
-        SMR_somatic_std = SMR_coeff * (weight_somatic**SMR_exp)                                           !Baseline SMR based on weight [J timestep-1]
+        M_size = M_size_coeff*(length**M_size_exp)                  !Mortality rate due to size [timestep-1]
+        O2max_std = O2max_coeff*(weight_somatic**O2max_exp)         !Max aerobic scope
+        SMR_somatic_std = SMR_coeff * (weight_somatic**SMR_exp)     !Baseline SMR based on weight [J timestep-1]
 
         RESERVES_LOOP: do R = 1, R_categories                              !Energy reserves (relative to max storing capacity at length) [J]
           reserves = reserves_max * (real(R-1,RP)/real(R_categories-1,RP)) !Calculate energy content in reserves [J]
@@ -194,14 +188,14 @@ program Hormones_v2
 
           !DECISIONS
           THF_LOOP: do Th = 1, Th_categories
-            THF = THF_min + (real(Th,RP)-1._RP)*THF_step                           !Thyroid Hormone concentration in blood [ng ml-1]
+            THF = THF_min + (real(Th,RP)-1._RP)*THF_step                           !THF concentration in blood [ng ml-1]
             SMR_THF = SMR_std*(1._RP+((THF/THF_max)-0.5_RP)*THF_SMR_effect)        !THF increases SMR up to 50%, baseline SMR at standard THF [J timestep-1]
             O2max_THF = O2max_std*(1._RP+((THF/THF_max)-0.5_RP)*THF_O2max_effect)  !Max aerobic scope based on THF, potential...
                                                                                    !...[the difference between minimum and maximum oxygen consumption rate,...
                                                                                    !...02_(min) - 02_(max)]
             GHF_LOOP: do Gh = 1, Gh_categories
-              GHF = GHF_min + (real(Gh,RP)-1._RP)*GHF_step           !IGF-1 concentration in blood [ng ml-1]
-              growth = (GHF/GHF_max) * growth_max * weight_somatic   !Growth based on IGF-1 levels [kg]; (hormone concentration in larger blood volume can trigger more growth)
+              GHF = GHF_min + (real(Gh,RP)-1._RP)*GHF_step           !GHF concentration in blood [ng ml-1]
+              growth = (GHF/GHF_max) * growth_max * weight_somatic   !Growth based on GHF levels [kg]; (hormone concentration in larger blood volume can trigger more growth)
               growth_cost = growth*soma_energy_density               !Growth in J to calculate conversion costs below [J]
               weight_somatic_new = weight_somatic + growth           !New somatic weight based on growth [kg]
               length_new = (weight_somatic_new/k_somatic)**(1._RP/3._RP)   !New length calculated using new somatic weight [cm]
@@ -211,17 +205,11 @@ program Hormones_v2
               reserves_max_new = (k_max_reserves*(length_new**3._RP) - weight_somatic_new)*reserves_energy_density !Calculating new max reserves [J]
 
               OXF_LOOP: do Ox = 1, Ox_categories
-                OXF = OXF_min + (real(Ox,RP)-1._RP)*OXF_step     !Orexin concentration in serum [pg ml-1]
+                OXF = OXF_min + (real(Ox,RP)-1._RP)*OXF_step     !OXF concentration in serum [pg ml-1]
 
                 !ENVIRONMENT
                 ENVIRONMENT_LOOP: do E_cat = 1,E_categories
-                  target_intake = (OXF/OXF_max)*OXF_effect_on_intake   !Target intake given OXF, in multiples of SMR_std
-                  
-                  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!                  intake_max = weight_somatic * intake_max_per_kg                 !Max intake according to somatic weight [J timestep-1]
-!                  intake = min(foraging * ValueOfE(E_cat) * SMR_somatic_std, intake_max) ![J timestep-1] depends on somatic weight because predator-prey interactions are determined by length, not influenced by reserves.
-                  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                  
+                  target_intake = (OXF/OXF_max)*OXF_effect_on_intake  !Target intake given OXF, in multiples of SMR_std                  
                   intake = target_intake * SMR_somatic_std            !Target intake converted to [J timestep-1] Depends on somatic weight because predator-prey interactions are determined by length, not influenced by reserves.
                   foraging_required = target_intake / ValueOfE(E_cat) !Foraging required to get intake in given environment, in multiples of SMR
                   SDA = SDA_coeff*intake                                         !Cost of digestion [J timestep-1]
@@ -234,7 +222,7 @@ program Hormones_v2
                      conversion_cost_via_reserves = surplus_before_growth * (1._RP-conversion_efficiency_reserves)   !Conversion cost from intake to reserves [J]
                   !For negative surplus; there is a conversion loss for draining reserves to cover metabolic expenses
                   else
-                     conversion_cost_via_reserves =  abs(surplus_before_growth) / conversion_efficiency_reserves * (1._RP-conversion_efficiency_reserves)    !Conversion cost from reserves to metabolism [J]                                             !No positive intake that needs to be converted to reserves
+                     conversion_cost_via_reserves =  abs(surplus_before_growth) / conversion_efficiency_reserves * (1._RP-conversion_efficiency_reserves)   !Conversion cost from reserves to metabolism [J]                                             !No positive intake that needs to be converted to reserves
                   end if
 
                   conversion_cost_to_growth = (growth_cost/conversion_efficiency_growth)*(1._RP-conversion_efficiency_growth)  !Growth cost rescaled to requirement, then only conversion cost is considered [J]
@@ -253,9 +241,6 @@ program Hormones_v2
                   !If reserves is less than 0 the survival is set to 0
                   if (reserves_new <= 0._RP) then
                     survival = 0._RP
-                  !If reserves fall below starvation_limit*reserves_max the survival approaches 0
-!~                   elseif (reserves_new < starvation_limit*reserves_max_new) then
-!~                     survival = survival * (5._RP*reserves_new/reserves_max_new)
                   end if
 
                   !Interpolation for fitnessconsequences
@@ -317,6 +302,7 @@ program Hormones_v2
     print*, "forwardOnly is neither y or n, please check your parameter file"
     print*, "-------------------------- !!!ERROR!!! --------------------------"
     stop !Terminate code
+    
   end if forwardOnly_IF
 
 
@@ -324,7 +310,7 @@ program Hormones_v2
   
   !!CALCULATING THE ENVIRONMENT FOR EVERY INDIVIDUAL FOR EVERY TIME STEP!!
   
-  !Calling fixed seed for debugging (makes the environment they start in predictable)
+  !Calling fixed seed for debugging (makes the environment individuals start in predictable)
   call fixed_seed(random_seed_nr)
 
   !Making an array with the cumulative values of ProbAllE
@@ -397,37 +383,11 @@ program Hormones_v2
       dL = max(0._RP,min(L_cat - real(intL,RP),1._RP))      !... decimal part
 
       intE =  max(1,min(int(E_real),E_categories-1)) !Find integer part of environmental category
-      dE = max(0.,min(E_real - real(intE,RP),1._RP))  !... and decimal part
+      dE = max(0.,min(E_real - real(intE,RP),1._RP)) !... and decimal part
       
       R_cat = (reserves * real(R_categories-1,RP) / reserves_max) + 1._RP !Find reserve category from reserves
-      intR = max(1,min(int(R_cat),R_categories-1))                        !... integer part
-  
-      !Options for calculating decimal parts of reserves
-      
-      !Option 1: Old calculation, no switch and decimal part is continuous
-      int_d_opt_IF: if (r_i_d_c==1) then
-        dR = max(0._RP,min(R_cat - real(intR,RP),1._RP))
-      
-      !Option 2: Switch between R_cat 1 and 2, decimal part = 0. if R_cat < 2 if R_cat >= the decimal part is continuous 
-      elseif (r_i_d_c==2) then        
-        if (R_cat < 2) then
-          dR = 0._RP
-        else
-          dR = max(0._RP,min(R_cat - real(intR,RP),1._RP))
-        end if
-      
-      !Option 3: Decimal part of R_cat = 0.
-      elseif (r_i_d_c==3) then
-        dR = 0._RP
-      
-      else
-        print*, "-------------------------- !!!ERROR!!! --------------------------"
-        print*, "intopt is neither 1, 2 or 3, please check your parameter file"
-        print*, "-------------------------- !!!ERROR!!! --------------------------"
-        stop !Terminate code
-      end if int_d_opt_IF
-      
-      
+      intR = max(1,min(int(R_cat),R_categories-1))     !... integer part
+      dR = max(0._RP,min(R_cat - real(intR,RP),1._RP)) !... and decimal part
 
       !!Interpolate hormone categories from strategy matrix
       !Individuals with body length corresponding to L_categories-1 interpolate for length and reserves
@@ -462,15 +422,15 @@ program Hormones_v2
                 (        dE) * (        dR) * (        dL) * strategy(3, intE + 1, intR + 1, intL + 1, 1)
 
       !Convert from category to hormonvalue concentration
-      OXF = OXF_min + (OXF - 1._RP) * OXF_step !Orexin [pg ml-1]
-      GHF = GHF_min + (GHF - 1._RP) * GHF_step !IGF concentration [ng ml-1]
-      THF = THF_min + (THF - 1._RP) * THF_step !T3 concentration  [ng ml-1]
+      OXF = OXF_min + (OXF - 1._RP) * OXF_step !OXF concentration [pg ml-1]
+      GHF = GHF_min + (GHF - 1._RP) * GHF_step !GHF concentration [ng ml-1]
+      THF = THF_min + (THF - 1._RP) * THF_step !THF concentration [ng ml-1]
 
-      !Calculating thyroid dependent variables
+      !Calculating THF dependent variables
       SMR_THF = SMR_std * (1._RP + ((THF / THF_max) - 0.5_RP) * THF_SMR_effect)       !SMR based on thyroid, THF increases SMR up to 50%, baseline SMR at standard THF [J timestep-1]
       O2max_THF = O2max_std * (1._RP + ((THF / THF_max) - 0.5_RP) * THF_O2max_effect) !Max aerobic scope based on thyroid [02_(min) - 02_(max)]
 
-      !Calculate growth hormone - dependent variables
+      !Calculate GHF - dependent variables
       growth = (GHF / GHF_max) * growth_max * weight_somatic  !Growth [kg]
       growth_cost = growth * soma_energy_density              !Cost of new tissue growth [J]
 
@@ -479,19 +439,13 @@ program Hormones_v2
       length = (weight_somatic / k_somatic) ** (1._RP/3._RP) !New length [cm]
       reserves_max = (k_max_reserves * (length**3._RP) - weight_somatic) * reserves_energy_density !Max reserves possible at given size [J]
 
-      !Calculate orexin - dependent variables
+      !Calculate OXF - dependent variables
       target_intake = (OXF / OXF_max) * OXF_effect_on_intake   !Foraging intensity given OXF in multiples of SMR_std
-      
-      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!      intake_max = weight_somatic * intake_max_per_kg                 !Max intake according to somatic weight [J timestep-1]
-!      intake = min(foraging * ValueOfE_real *  SMR_somatic_std, intake_max) ![J timestep-1] depends on somatic weight because predator-prey interactions are determined by length, not influenced by reserves.
-      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                  
-      intake = target_intake *  SMR_somatic_std            !Intake in [J timestep-1]
-      foraging_required = target_intake / ValueOfE_real    !Foraging required to get intake in given environment in multiples of SMR
+      intake = target_intake *  SMR_somatic_std                !Intake in [J timestep-1]
+      foraging_required = target_intake / ValueOfE_real        !Foraging required to get intake in given environment in multiples of SMR
       SDA = SDA_coeff * intake                                          !Cost of digestion [J timestep-1]
       foraging_cost = foraging_cost_coeff * foraging_required * SMR_std !Cost of foraging for food [J timestep-1]
-      surplus_before_growth = intake - SDA - SMR_THF - foraging_cost  !Surplus energy available for growth, etc [J timestep-1]
+      surplus_before_growth = intake - SDA - SMR_THF - foraging_cost    !Surplus energy available for growth, etc [J timestep-1]
 
       !From positive surplus, there is conversion loss to intermediate metabolites = reserves. Growth is always taken from intermediate metabolites/reserves.
       if (surplus_before_growth > 0._RP) then
@@ -515,9 +469,6 @@ program Hormones_v2
       !If reserves are less than -100 the individual dies (survival = 0)
       if (reserves <= -100._RP) then
         survival = 0._RP
-      !If reserves fall below starvation_limit*reserves_max the survival approaches 0
-!~       elseif (reserves < starvation_limit*reserves_max) then
-!~         survival = survival * (5._RP*max(0._RP,reserves)/reserves_max)
       end if
       
       !If reserves was less than 0, set them to 0,
@@ -571,9 +522,9 @@ program Hormones_v2
       ind(33,t+1,n) = (ind(3,t+1,n) - ind(3,t,n)) !Change in reserves from the start and the end of the timestep [J]
       
       !Information stored from this timestep
-      ind(6,t,n) = OXF                      !Orexin [pg ml-1]
-      ind(7,t,n) = GHF                      !IGF [ng ml-1]
-      ind(8,t,n) = THF                      !T3 [ng ml-1]
+      ind(6,t,n) = OXF                      !OXF [pg ml-1]
+      ind(7,t,n) = GHF                      !GHF [ng ml-1]
+      ind(8,t,n) = THF                      !THF [ng ml-1]
       ind(9,t,n) = SMR_std                  !SMR standard
       ind(10,t,n) = SMR_THF                 !SMR adjusted for thyroid hormones
       ind(11,t,n) = growth                  !Growth [kg]
@@ -615,12 +566,10 @@ program Hormones_v2
   !Write ind-matrix to binary file
   call array_to_binary(ind, "ind.bin")
   
+  !Print summary
   print*, "Died", survarray(1), "To slow", survarray(2), "Survived", survarray(3) 
-  
-  print*, "Individual 1 started in environment nr: ", ind(28, 1, 1)
-  print*, "Second environment:                     ", ind(28, 2, 1)
 
-  !Prints run time to screen
+  !Print run time
   call cpu_time(finish)
   print*, "Runtime in minutes :",nint((finish-start)/60)
 

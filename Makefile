@@ -1,7 +1,3 @@
-#*******************************************************************************
-#SVN Version ID: $Id$
-#*******************************************************************************
-
 # Usage:
 #   make            -- build with gfortran with all math optimisations
 #   make FC=ifort   -- build with ifort with all math optimisations
@@ -15,24 +11,18 @@ IF_FC = ifort
 
 # Choose the default compiler type, here it is ifort. To use gfortran as
 # the default set FC to $(GF_FC).
-FC = $(IF_FC)
+FC = $(GF_FC)
 
 # Sources for the main program. Note that parameters.f90 go first in the
 # list because the two remaining files / modules use the precision constant
 # set in parameters.f90
-SRC = parameters.f90 folder.f90 functions.f90 binary_IO.f90
+SRC = parameters.f90 functions.f90 binary_IO.f90
 
 # Main source file for the main program 
 SRC_MAIN = Hormones_v2.f90
 
-# Source file for experimental program
-SRC_EX = Hormones_v2_forcedE.f90
-
 # Output executable
 OUT = HORMONES.exe
-
-# Output experimental executable
-OUT_EX = HORMONES_EX.exe
 
 # Options for GNU Fortran
 # -Wall  does all checks in gfortran
@@ -48,7 +38,7 @@ GF_FFLAGS = -O3 -funroll-loops -fforce-addr -ffree-line-length-none -Wall -stati
 # Options for Intel Fortran on Linux
 #-fpe3 -warn -check bounds,pointers,format,uninit does checks in Intel Fortran
 #-fpe3 on intel halts on arithmetic errors like NaN
-IF_FFLAGS = -sox -O3 -ipo -fpe3 -warn -check bounds,pointers,format,uninit -autodouble
+IF_FFLAGS = -sox -O3 -ipo -fpe3 -warn -check bounds,pointers,format,uninit
 
 # On the Windows platform, intel fortran compiler uses a different pattern
 # for compiler flags, starting with /Q
@@ -117,16 +107,9 @@ endif
 # This is a 'standard' default target.
 all: $(OUT)
 
-#This is the shortcut target take calls "make Hormones_v2_forcedE.f90"
-ex: $(OUT_EX)
-
 # This target produces the executable program.
 $(OUT): $(SRC) $(SRC_MAIN)
 	$(FC) $(FFLAGS) $^ -o $(OUT)
-
-# This target produces the experimental executable program
-$(OUT_EX): $(SRC) $(SRC_EX)
-	$(FC) $(FFLAGS) $^ -o $(OUT_EX)
 
 # Clean temporary mod object and output files, add more patterns as needed,
 # e.g. output data files like *.bin
@@ -135,7 +118,7 @@ $(OUT_EX): $(SRC) $(SRC_EX)
 #       keep going. It is okay for rm
 .PHONY: clean
 clean:
-	-$(RM) $(OUT) $(OUT_EX) *.mod fort.* *.tmp *.o *.obj *.pdb *.ilk
+	-$(RM) $(OUT) *.mod fort.* *.tmp *.o *.obj *.pdb *.ilk
 
 # Distclean is also a 'standard' target. Here it just calls clean, and then
 # additionally deletes binary output data files.
@@ -153,19 +136,5 @@ ifeq ($(PLATFORM_TYPE),Windows)
 	$(OUT) $(RUNFLAG)
 else
 	./$(OUT) $(RUNFLAG)
-endif
-	$(info *** Model done)
-
-# Run the experiment model, if the executable has 'outdated' status (the source has been
-# edited since the last build), that will rebuild it first and then run.
-runex: $(OUT_EX) $(SRC) $(SRC_EX)
-	$(info ****************************************************************)
-	$(info *** Executing model $(OUT_EX) now, runtime platform is $(PLATFORM_TYPE))
-	$(info *** and compiler is $(FC))
-	$(info ****************************************************************)
-ifeq ($(PLATFORM_TYPE),Windows)
-	$(OUT_EX) $(RUNFLAG)
-else
-	./$(OUT_EX) $(RUNFLAG)
 endif
 	$(info *** Model done)
