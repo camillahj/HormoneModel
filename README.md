@@ -1,5 +1,5 @@
 # HormoneModel_stochastic
-The Hormone Model is part of the AHA project.
+The Hormone Model is part of the AHA project (https://ahamodel.uib.no).
 
 A model description is published in Biology Open: https://doi.org/10.1242/bio.046144 (Weidner et al. 2020)
 
